@@ -54,11 +54,18 @@ export default class Trackee extends React.Component {
           this.state.appState.match(/inactive|background/) &&
           nextAppState === "active"
         ) {
-          // app has come to foreground
+          // La aplicación ha vuelto al foreground.
+          // Se agregan las coordenadas obtenidas en background
+          // para que puedan visualizarse.
           const { locations, backgroundLocations } = this.state
           const _locations = [...locations, ...backgroundLocations]
-          this.setState({ appState: nextAppState, locations: _locations, backgroundLocations: [] });
-        } else this.setState({ appState: nextAppState });
+          this.setState({locations: _locations, backgroundLocations: [] });
+        } else if (nextAppState.match(/inactive|background/)) {
+          // La aplicación ha pasado a segundo plano.
+          // En este momento se debe persistir el estado actual del recorrido,
+          // en caso de haber uno en curso.
+        }
+        this.setState({ appState: nextAppState });
       }
     );
     if (Platform.OS == 'android') this.isBackgroundGranted()
@@ -237,9 +244,6 @@ export default class Trackee extends React.Component {
               strokeWidth={6}
             />
           </MapView>
-          <View>
-            <Text>{this.state.appState}</Text>
-          </View>
         </View>
       </SafeAreaView>
     );

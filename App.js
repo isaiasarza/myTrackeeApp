@@ -1,9 +1,10 @@
 import React from 'react';
-import { StyleSheet, View, Platform, Dimensions, SafeAreaView, TurboModuleRegistry, AppState } from 'react-native';
+import { StyleSheet, View, Platform, Dimensions, SafeAreaView, TurboModuleRegistry, AppState, Text } from 'react-native';
 import MapView, { Marker, AnimatedRegion, Polyline, LatLng } from 'react-native-maps';
 import { PermissionsAndroid, PermissionStatus } from 'react-native';
 import ReactNativeForegroundService from '@supersami/rn-foreground-service';
 import RNLocation from 'react-native-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 //import PubNubReact from 'pubnub-react';
@@ -37,19 +38,27 @@ export default class Trackee extends React.Component {
     };
   }
 
-  componentDidMount() {
+  async componentDidMount() {
+    
+    const lastState: string = await AsyncStorage.getItem('@appState') || ''
+    if(lastState == 'background'){
+      // La app fue removida, verificar sino quedo un
+      // recorrido en curso y si fue así,
+      // reestablecerlo.
+    }
     this.appStateSubscription = AppState.addEventListener(
       "change",
-      nextAppState => {
+      async (nextAppState) => {
+        await AsyncStorage.setItem('@appState', nextAppState)
         if (
           this.state.appState.match(/inactive|background/) &&
           nextAppState === "active"
         ) {
-          console.log("App has come to the foreground!");
+          // app has come to foreground
           const { locations, backgroundLocations } = this.state
           const _locations = [...locations, ...backgroundLocations]
-          this.setState({ appState: nextAppState, locations: _locations });
-        }else this.setState({ appState: nextAppState });
+          this.setState({ appState: nextAppState, locations: _locations, backgroundLocations: [] });
+        } else this.setState({ appState: nextAppState });
       }
     );
     if (Platform.OS == 'android') this.isBackgroundGranted()
@@ -228,6 +237,9 @@ export default class Trackee extends React.Component {
               strokeWidth={6}
             />
           </MapView>
+          <View>
+            <Text>{this.state.appState}</Text>
+          </View>
         </View>
       </SafeAreaView>
     );

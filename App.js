@@ -1,15 +1,30 @@
 import React from 'react';
-import { StyleSheet, View, Platform, Dimensions, SafeAreaView, TurboModuleRegistry, AppState, Text } from 'react-native';
-import MapView, { Marker, AnimatedRegion, Polyline, LatLng } from 'react-native-maps';
-import { PermissionsAndroid, PermissionStatus } from 'react-native';
-import ReactNativeForegroundService from '@supersami/rn-foreground-service';
+import {
+  StyleSheet,
+  View,
+  Platform,
+  Dimensions,
+  SafeAreaView,
+  TurboModuleRegistry,
+  AppState,
+  Text,
+} from 'react-native';
+import MapView, {
+  Marker,
+  AnimatedRegion,
+  Polyline,
+  LatLng,
+} from 'react-native-maps';
+import {PermissionsAndroid, PermissionStatus} from 'react-native';
+//import VIForegroundService from '@voximplant/react-native-foreground-service';
+import notifee from '@notifee/react-native';
+
 import RNLocation from 'react-native-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-
 //import PubNubReact from 'pubnub-react';
 
-const { width, height } = Dimensions.get('window');
+const {width, height} = Dimensions.get('window');
 
 const ASPECT_RATIO = width / height;
 
@@ -17,9 +32,10 @@ const LATITUDE = -42.780131;
 const LONGITUDE = -65.055571;
 const LATITUDE_DELTA = 0.0922;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
-const LOCATIONS: LatLng[] = []
+const LOCATIONS: LatLng[] = [];
 export default class Trackee extends React.Component {
   locationSubscription = null;
+  //foregroundService = VIForegroundService.getInstance();
   constructor(props) {
     super(props);
 
@@ -39,37 +55,38 @@ export default class Trackee extends React.Component {
   }
 
   async componentDidMount() {
-    
-    const lastState: string = await AsyncStorage.getItem('@appState') || ''
-    if(lastState == 'background'){
+    const lastState: string = (await AsyncStorage.getItem('@appState')) || '';
+    if (lastState == 'background') {
       // La app fue removida, verificar sino quedo un
       // recorrido en curso y si fue así,
       // reestablecerlo.
     }
     this.appStateSubscription = AppState.addEventListener(
-      "change",
-      async (nextAppState) => {
-        await AsyncStorage.setItem('@appState', nextAppState)
+      'change',
+      async nextAppState => {
+        await AsyncStorage.setItem('@appState', nextAppState);
         if (
           this.state.appState.match(/inactive|background/) &&
-          nextAppState === "active"
+          nextAppState === 'active'
         ) {
           // La aplicación ha vuelto al foreground.
           // Se agregan las coordenadas obtenidas en background
           // para que puedan visualizarse.
-          const { locations, backgroundLocations } = this.state
-          const _locations = [...locations, ...backgroundLocations]
-          this.setState({locations: _locations, backgroundLocations: [] });
+          const {locations, backgroundLocations} = this.state;
+          const _locations = [...locations, ...backgroundLocations];
+          this.setState({locations: _locations, backgroundLocations: []});
         } else if (nextAppState.match(/inactive|background/)) {
           // La aplicación ha pasado a segundo plano.
           // En este momento se debe persistir el estado actual del recorrido,
           // en caso de haber uno en curso.
         }
-        this.setState({ appState: nextAppState });
-      }
+        this.setState({appState: nextAppState});
+      },
     );
-    if (Platform.OS == 'android') this.isBackgroundGranted()
-    else this.initLocationIOS()
+    if (Platform.OS == 'android') {
+      //this.isBackgroundGranted();
+      this.initLocationAndroid();
+    } else this.initLocationIOS();
   }
 
   componentDidUpdate(prevProps, prevState) {
@@ -85,7 +102,7 @@ export default class Trackee extends React.Component {
   }
 
   componentWillUnmount() {
-    console.log("componentWillUnmount")
+    console.log('componentWillUnmount');
     this.appStateSubscription.remove();
   }
 
@@ -98,29 +115,30 @@ export default class Trackee extends React.Component {
   });
 
   //request the permission before starting the service.
-  async isBackgroundGranted(): Promise<PermissionStatus> {
-    const backgroundGranted = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
-      {
-        title: 'Background Location Permission',
-        message:
-          'We need access to your location ' +
-          'so you can get live quality updates.',
-        buttonNeutral: 'Ask Me Later',
-        buttonNegative: 'Cancel',
-        buttonPositive: 'OK',
-      },
-    );
-
-    if (backgroundgranted === PermissionsAndroid.RESULTS.GRANTED) {
-      //do your thing!
-      console.log("is granted!")
+  async isBackgroundGranted(): Promise<boolean> {
+    try {
+      const backgroundGranted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
+        {
+          title: 'Background Location Permission',
+          message:
+            'We need access to your location ' +
+            'so you can get live quality updates.',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        },
+      );
+      return backgroundGranted === PermissionsAndroid.RESULTS.GRANTED
+    } catch (error) {
+      console.error('background error ', error);
+      return false
     }
   }
 
   rnLocationConfigure() {
     RNLocation.configure({
-      distanceFilter: 100, // Meters
+      distanceFilter: 0, // Meters
       desiredAccuracy: {
         ios: 'best',
         android: 'balancedPowerAccuracy',
@@ -146,38 +164,41 @@ export default class Trackee extends React.Component {
       android: {
         detail: 'fine',
       },
-    }).then((granted) => {
+    }).then(granted => {
       console.log('Location Permissions: ', granted);
       if (granted) {
         this.locationSubscription = RNLocation.subscribeToLocationUpdates(
-          ([location]) => {            
-            
-            const { coordinate, locations, appState, backgroundLocations } = this.state;
-            const { latitude, longitude } = location;
+          ([location]) => {
+            const {
+              coordinate,
+              locations,
+              appState,
+              backgroundLocations,
+            } = this.state;
+            const {latitude, longitude} = location;
 
             const newCoordinate: LatLng = {
               latitude,
               longitude,
-            }
+            };
 
             coordinate.timing(newCoordinate).start();
 
-            if(appState == 'active'){
-              let _locations = [...locations, newCoordinate]
-              console.log("locations length ", _locations.length)
+            if (appState == 'active') {
+              let _locations = [...locations, newCoordinate];
+              console.log('locations length ', _locations.length);
               this.setState({
                 latitude,
                 longitude,
-                locations: _locations
+                locations: _locations,
               });
-            }else{
-              let _locations = [...backgroundLocations, newCoordinate]
-              console.log("BACKGROUND locations length ", _locations.length)
+            } else {
+              let _locations = [...backgroundLocations, newCoordinate];
+              console.log('BACKGROUND locations length ', _locations.length);
               this.setState({
-                backgroundLocations: _locations
+                backgroundLocations: _locations,
               });
-            }           
-            
+            }
           },
         );
       } else {
@@ -186,44 +207,68 @@ export default class Trackee extends React.Component {
     });
   }
 
+  async configForegroundService() {
+    
+    // const channelConfig = {
+    //   id: 'channelId',
+    //   name: 'Channel name',
+    //   description: 'Channel description',
+    //   enableVibration: false,
+    // };
+    // await this.foregroundService.createNotificationChannel(channelConfig);
+
+    // const notificationConfig = {
+    //   channelId: 'channelId',
+    //   id: 3456,
+    //   title: 'Title',
+    //   text: 'Some text',
+    //   icon: 'ic_icon',
+    //   button: 'Some text',
+    //   }
+
+    //   try {
+    //       await this.foregroundService.startService(notificationConfig);
+    //   } catch (e) {
+    //       console.error(e);
+    //   }
+
+    notifee.registerForegroundService((notification) => {
+      return new Promise(() => {
+        // Long running task...
+        console.log("foreground service running...")
+      });
+    });
+  }
+
   initLocationIOS() {
-    this.rnLocationConfigure()
-    this.rnLocationRequestPermission()
+    this.rnLocationConfigure();
+    this.rnLocationRequestPermission();
   }
 
   initLocationAndroid() {
-    ReactNativeForegroundService.register();
-    this.rnLocationConfigure()
-
-    const taskId: string = ReactNativeForegroundService.add_task(
-      () => {
-        console.log('my task!')
-        this.rnLocationRequestPermission()
-      },
-      {
-        delay: 1000,
-        onLoop: true,
-        taskId: 'taskid',
-        onError: (e) => console.log('Error logging:', e),
-      },
-    );
-
-    ReactNativeForegroundService.start({ id: 55, title: 'My Trackee App', message: 'Estamos obteniendo tu ubicación...' })
+    const _isBackgroundGranted: boolean = this.isBackgroundGranted()
+    if(_isBackgroundGranted) this.configForegroundService();
+    this.rnLocationConfigure();
+    this.rnLocationRequestPermission();
   }
+  
+  clearTimeout() {}
 
-  clearTimeout() {
-
-  }
-
-  getLocations(){
-    return []
+  getLocations() {
+    return [];
   }
 
   render() {
     return (
-      <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView style={{flex: 1}}>
         <View style={styles.container}>
-          <MapView style={styles.map} showUserLocation followUserLocation loadingEnabled region={this.getMapRegion()}>
+          <MapView
+            style={styles.map}
+            showUserLocation
+            followUserLocation
+            loadingEnabled
+            region={this.getMapRegion()}
+          >
             <Marker.Animated
               ref={marker => {
                 this.marker = marker;
@@ -239,7 +284,7 @@ export default class Trackee extends React.Component {
                 '#B24112',
                 '#E5845C',
                 '#238C23',
-                '#7F0000'
+                '#7F0000',
               ]}
               strokeWidth={6}
             />

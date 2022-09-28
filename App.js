@@ -17,7 +17,7 @@ import MapView, {
 } from 'react-native-maps';
 import {PermissionsAndroid, PermissionStatus} from 'react-native';
 //import VIForegroundService from '@voximplant/react-native-foreground-service';
-import notifee from '@notifee/react-native';
+import notifee, { AndroidColor, AndroidImportance } from '@notifee/react-native';
 
 import RNLocation from 'react-native-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -138,10 +138,10 @@ export default class Trackee extends React.Component {
 
   rnLocationConfigure() {
     RNLocation.configure({
-      distanceFilter: 0, // Meters
+      distanceFilter: 100, // Meters
       desiredAccuracy: {
         ios: 'best',
-        android: 'balancedPowerAccuracy',
+        android: 'highAccuracy',
       },
       // Android only
       androidProvider: 'auto',
@@ -182,11 +182,13 @@ export default class Trackee extends React.Component {
               longitude,
             };
 
-            coordinate.timing(newCoordinate).start();
+            
 
             if (appState == 'active') {
+              coordinate.timing(newCoordinate).start();
               let _locations = [...locations, newCoordinate];
               console.log('locations length ', _locations.length);
+              console.log('latitude: ', newCoordinate.latitude)
               this.setState({
                 latitude,
                 longitude,
@@ -208,36 +210,32 @@ export default class Trackee extends React.Component {
   }
 
   async configForegroundService() {
-    
-    // const channelConfig = {
-    //   id: 'channelId',
-    //   name: 'Channel name',
-    //   description: 'Channel description',
-    //   enableVibration: false,
-    // };
-    // await this.foregroundService.createNotificationChannel(channelConfig);
-
-    // const notificationConfig = {
-    //   channelId: 'channelId',
-    //   id: 3456,
-    //   title: 'Title',
-    //   text: 'Some text',
-    //   icon: 'ic_icon',
-    //   button: 'Some text',
-    //   }
-
-    //   try {
-    //       await this.foregroundService.startService(notificationConfig);
-    //   } catch (e) {
-    //       console.error(e);
-    //   }
-
     notifee.registerForegroundService((notification) => {
       return new Promise(() => {
         // Long running task...
         console.log("foreground service running...")
+        this.rnLocationConfigure();
+        this.rnLocationRequestPermission();
       });
     });
+    const channelId: string = await notifee.createChannel({
+      id: 'alarm',
+      name: 'Firing alarms & timers',
+      lights: false,
+      vibration: true,
+      importance: AndroidImportance.DEFAULT,
+    });
+    await notifee.displayNotification({
+      title: 'Foreground service',
+      body: 'This notification will exist for the lifetime of the service runner',
+      android: {
+        channelId,
+        asForegroundService: true,
+        color: AndroidColor.AQUA,
+        colorized: true,
+      },
+    });
+    
   }
 
   initLocationIOS() {
@@ -245,11 +243,11 @@ export default class Trackee extends React.Component {
     this.rnLocationRequestPermission();
   }
 
-  initLocationAndroid() {
+  async initLocationAndroid() {
     const _isBackgroundGranted: boolean = this.isBackgroundGranted()
-    if(_isBackgroundGranted) this.configForegroundService();
-    this.rnLocationConfigure();
-    this.rnLocationRequestPermission();
+    if(_isBackgroundGranted) 
+      await this.configForegroundService();
+    
   }
   
   clearTimeout() {}
@@ -277,10 +275,10 @@ export default class Trackee extends React.Component {
             />
             <Polyline
               coordinates={this.state.locations}
-              strokeColor="#000" // fallback for when `strokeColors` is not supported by the map-provider
+              strokeColor="#000" 
               strokeColors={[
                 '#7F0000',
-                '#00000000', // no color, creates a "long" gradient between the previous and next coordinate
+                '#00000000', 
                 '#B24112',
                 '#E5845C',
                 '#238C23',

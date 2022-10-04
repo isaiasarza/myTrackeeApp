@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "515938989606",
+    "project_id": "movies-60eaa",
+    "storage_bucket": "movies-60eaa.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:515938989606:android:1d55d0d3ae09bd7557d8e7",
+        "android_client_info": {
+          "package_name": "com.mytrackeeapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "515938989606-t9oticrhrfkkuq80gvtnuspbfn34mgke.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBv1CJaw1qaSPIMcigWUKrhq8vHEn5C9U8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "515938989606-t9oticrhrfkkuq80gvtnuspbfn34mgke.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "515938989606-3vk0g4fjqqeqhm44f0d0ghkhglsu6mt0.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "ia.devs.FindYourSup3rHero"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -22,17 +22,19 @@ import notifee, { AndroidColor, AndroidImportance } from '@notifee/react-native'
 import RNLocation from 'react-native-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import firestore from '@react-native-firebase/firestore';
+
 //import PubNubReact from 'pubnub-react';
 
 const {width, height} = Dimensions.get('window');
 
 const ASPECT_RATIO = width / height;
-
 const LATITUDE = -42.780131;
 const LONGITUDE = -65.055571;
 const LATITUDE_DELTA = 0.0922;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 const LOCATIONS: LatLng[] = [];
+
 export default class Trackee extends React.Component {
   locationSubscription = null;
   //foregroundService = VIForegroundService.getInstance();
@@ -45,6 +47,7 @@ export default class Trackee extends React.Component {
       longitude: LONGITUDE,
       locations: LOCATIONS,
       backgroundLocations: [],
+      sendedLocations: [],
       coordinate: new AnimatedRegion({
         latitude: LATITUDE,
         longitude: LONGITUDE,
@@ -182,7 +185,7 @@ export default class Trackee extends React.Component {
               longitude,
             };
 
-            
+            this.sendNewCoordinate(newCoordinate)
 
             if (appState == 'active') {
               coordinate.timing(newCoordinate).start();
@@ -254,6 +257,17 @@ export default class Trackee extends React.Component {
 
   getLocations() {
     return [];
+  }
+
+  sendNewCoordinate(newCoordinate: LatLng){
+    const timestamp =  new Date().getTime()
+    const message = {...newCoordinate, timestamp}
+    firestore()
+      .collection('locations')
+      .add(message)
+      .catch((error) => {
+        console.error('Error al enviar location! ', error);
+      });
   }
 
   render() {
